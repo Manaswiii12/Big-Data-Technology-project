@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>LogSight — Server Intelligence</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --p:#7c3aed;--p2:#4f46e5;--p-dim:#ede9fe;--p-glow:rgba(124,58,237,.25);
+      --teal:#0d9488;--teal-l:#ccfbf1;--amber:#b45309;--amber-l:#fef3c7;
+      --rose:#be123c;--rose-l:#ffe4e6;--green:#047857;--green-l:#d1fae5;
+      --blue:#1d4ed8;--blue-l:#dbeafe;--orange:#c2410c;--orange-l:#ffedd5;
+      --bg:#f5f4ff;--bg2:#eeeeff;--surf:#ffffff;--bdr:rgba(124,58,237,.12);
+      --txt:#1e1b4b;--muted:#6b7280;--nav-h:66px;
+      --shadow:0 2px 20px rgba(79,46,184,.08);--shadow-lg:0 8px 40px rgba(79,46,184,.13);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+    body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");opacity:.4;}
+
+    nav{position:sticky;top:0;z-index:200;height:var(--nav-h);background:rgba(255,255,255,.88);
+      backdrop-filter:blur(16px);border-bottom:1px solid var(--bdr);
+      display:flex;align-items:center;justify-content:space-between;padding:0 32px;
+      animation:slideDown .5s ease both;}
+    @keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:none;opacity:1}}
+    .nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none;cursor:pointer}
+    .nav-logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--p),var(--p2));
+      display:grid;place-items:center;font-size:19px;box-shadow:0 4px 14px var(--p-glow);}
+    .nav-brand-txt .t1{font-size:16px;font-weight:800;color:var(--txt)}
+    .nav-brand-txt .t2{font-size:10px;color:var(--muted);letter-spacing:.05em}
+    .nav-tabs{display:flex;gap:2px}
+    .nav-tab{padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500;
+      color:var(--muted);cursor:pointer;border:none;background:none;transition:all .18s;}
+    .nav-tab:hover{background:var(--p-dim);color:var(--p)}
+    .nav-tab.active{background:var(--p-dim);color:var(--p);font-weight:600}
+    .nav-right{display:flex;align-items:center;gap:10px}
+    .live-pill{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+      color:var(--green);background:var(--green-l);padding:5px 12px;border-radius:50px;}
+    .live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.4s infinite}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+    .btn-primary{padding:8px 18px;border-radius:50px;font-size:13px;font-weight:600;
+      background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;border:none;cursor:pointer;
+      box-shadow:0 4px 14px var(--p-glow);transition:transform .15s,box-shadow .15s;}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px var(--p-glow)}
+
+    .page{display:none;padding:36px 32px 64px;max-width:1360px;margin:0 auto;position:relative;z-index:1}
+    .page.active{display:block;animation:fadeUp .5s ease both}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+    .eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;
+      letter-spacing:.1em;text-transform:uppercase;color:var(--p);background:var(--p-dim);
+      padding:4px 12px;border-radius:50px;margin-bottom:14px;}
+    h1.hero{font-size:38px;font-weight:800;line-height:1.1;margin-bottom:8px}
+    h1.hero em{font-style:italic;color:var(--p)}
+    .hero-sub{font-size:14px;color:var(--muted);max-width:500px;margin-bottom:32px}
+
+    .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+    .kpi-card{background:var(--surf);border:1px solid var(--bdr);border-radius:18px;
+      padding:22px 22px 18px;position:relative;overflow:hidden;box-shadow:var(--shadow);
+      transition:transform .2s,box-shadow .2s;animation:fadeUp .5s ease both;}
+    .kpi-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+    .kpi-card::after{content:'';position:absolute;top:0;right:0;width:80px;height:80px;
+      border-radius:50%;transform:translate(30px,-30px);opacity:.06;}
+    .kpi-card.purple::after{background:var(--p)}.kpi-card.green::after{background:var(--green)}
+    .kpi-card.rose::after{background:var(--rose)}.kpi-card.amber::after{background:var(--amber)}
+    .kpi-card.teal::after{background:var(--teal)}.kpi-card.blue::after{background:var(--blue)}
+    .kpi-badge{position:absolute;top:16px;right:16px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:50px;}
+    .up{color:var(--green);background:var(--green-l)}.down{color:var(--rose);background:var(--rose-l)}
+    .warn{color:var(--amber);background:var(--amber-l)}.info{color:var(--blue);background:var(--blue-l)}
+    .kpi-icon{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:20px;margin-bottom:14px}
+    .kpi-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+    .kpi-val{font-size:30px;font-weight:800;margin-top:4px;line-height:1}
+    .kpi-sub{font-size:11px;color:var(--muted);margin-top:5px}
+    .kpi-bar{margin-top:14px;height:4px;border-radius:4px;background:var(--bg2);overflow:hidden}
+    .kpi-fill{height:100%;border-radius:4px;transition:width 1.4s cubic-bezier(.4,0,.2,1)}
+
+    .card{background:var(--surf);border:1px solid var(--bdr);border-radius:20px;
+      padding:26px 28px;box-shadow:var(--shadow);transition:transform .2s,box-shadow .2s;}
+    .card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+    .card-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+    .card-title{font-size:15px;font-weight:700}
+    .chip{font-size:11px;font-weight:600;padding:3px 10px;border-radius:50px;background:var(--p-dim);color:var(--p)}
+    .chip.teal{background:var(--teal-l);color:var(--teal)}.chip.rose{background:var(--rose-l);color:var(--rose)}
+    .chip.green{background:var(--green-l);color:var(--green)}.chip.amber{background:var(--amber-l);color:var(--amber)}
+
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+    .g3{display:grid;grid-template-columns:1.7fr 1fr;gap:20px;margin-bottom:20px}
+    .g33{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:20px}
+    .mb20{margin-bottom:20px}
+
+    table{width:100%;border-collapse:collapse}
+    thead th{padding:10px 16px;text-align:left;font-size:10px;font-weight:700;
+      letter-spacing:.07em;text-transform:uppercase;color:var(--muted);background:#faf9ff;}
+    tbody tr{border-top:1px solid var(--bdr);transition:background .15s}
+    tbody tr:hover{background:#faf9ff}
+    tbody td{padding:12px 16px;font-size:13px}
+    .mono{font-family:'DM Mono',monospace;font-size:12px}
+    .status-badge{display:inline-block;padding:2px 9px;border-radius:50px;font-size:11px;font-weight:700}
+    .s2{background:var(--green-l);color:var(--green)}.s3{background:var(--amber-l);color:var(--amber)}
+    .s4{background:var(--rose-l);color:var(--rose)}.s5{background:#fee2e2;color:#991b1b}
+
+    .prow{display:flex;align-items:center;gap:8px}
+    .mbar{flex:1;height:6px;border-radius:4px;background:var(--bg2);overflow:hidden}
+    .mfill{height:100%;border-radius:4px}
+    .cnt{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);min-width:40px;text-align:right}
+
+    .alert-item{display:flex;align-items:flex-start;gap:14px;padding:16px 0;border-bottom:1px solid var(--bdr);}
+    .alert-item:last-child{border-bottom:none;padding-bottom:0}
+    .alert-icon{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:18px;flex-shrink:0;}
+    .alert-icon.crit{background:var(--rose-l)}.alert-icon.warn{background:var(--amber-l)}.alert-icon.info{background:var(--blue-l)}
+    .alert-title{font-size:13px;font-weight:700;margin-bottom:3px}
+    .alert-msg{font-size:12px;color:var(--muted)}
+    .alert-time{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto;padding-top:2px;white-space:nowrap}
+
+    .upload-item{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--bdr);}
+    .upload-item:last-child{border-bottom:none}
+    .upload-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+    .u200{background:var(--green)}.u4xx{background:var(--rose)}
+    .upload-info{flex:1}
+    .upload-url{font-family:'DM Mono',monospace;font-size:12px;color:var(--txt)}
+    .upload-meta{font-size:11px;color:var(--muted);margin-top:2px}
+    .upload-size{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;
+      color:var(--p);background:var(--p-dim);padding:3px 9px;border-radius:6px;}
+
+    .geo-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bdr);}
+    .geo-row:last-child{border-bottom:none}
+    .geo-flag{font-size:18px;width:28px;text-align:center}
+    .geo-name{font-size:13px;font-weight:500;flex:1}
+    .geo-bar{flex:2;height:6px;border-radius:4px;background:var(--bg2);overflow:hidden}
+    .geo-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--p),var(--p2))}
+    .geo-cnt{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);min-width:50px;text-align:right}
+
+    .live-ticker{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
+      background:linear-gradient(135deg,var(--p),var(--p2));border-radius:18px;
+      padding:22px 28px;margin-bottom:22px;box-shadow:0 8px 30px var(--p-glow);}
+    .ticker-item{color:#fff;text-align:center}
+    .ticker-val{font-size:28px;font-weight:800;line-height:1}
+    .ticker-lbl{font-size:11px;opacity:.7;margin-top:4px;font-weight:500}
+    .ticker-sub{font-size:10px;opacity:.5;margin-top:2px;font-family:'DM Mono',monospace}
+
+    .feed-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--bdr);font-size:12px;}
+    .feed-item:last-child{border-bottom:none}
+    .feed-time{font-family:'DM Mono',monospace;color:var(--muted);width:52px;flex-shrink:0;padding-top:1px}
+    .feed-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+    .feed-url{font-family:'DM Mono',monospace;font-size:11px;color:var(--p)}
+
+    footer{border-top:1px solid var(--bdr);text-align:center;padding:18px;font-size:11px;
+      color:var(--muted);position:relative;z-index:1;background:rgba(255,255,255,.6);}
+
+    #toast{position:fixed;bottom:28px;right:28px;z-index:999;
+      background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;
+      padding:12px 20px;border-radius:14px;font-size:13px;font-weight:600;
+      box-shadow:0 8px 28px var(--p-glow);transform:translateY(80px);opacity:0;
+      transition:all .3s cubic-bezier(.34,1.56,.64,1);}
+    #toast.show{transform:none;opacity:1}
+
+    @media(max-width:960px){
+      .kpi-grid{grid-template-columns:1fr 1fr}
+      .g2,.g3,.g33{grid-template-columns:1fr}
+      .live-ticker{grid-template-columns:1fr 1fr}
+      nav .nav-tabs{display:none}
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand" onclick="showPage('home')">
+    <div class="nav-logo">📡</div>
+    <div class="nav-brand-txt">
+      <div class="t1">LogSight</div>
+      <div class="t2">Server Intelligence</div>
+    </div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('home')">🏠 Home</button>
+    <button class="nav-tab" onclick="showPage('traffic')">📊 Traffic</button>
+    <button class="nav-tab" onclick="showPage('errors')">🛑 Errors &amp; Crashes</button>
+    <button class="nav-tab" onclick="showPage('uploads')">📤 Upload Detection</button>
+    <button class="nav-tab" onclick="showPage('geo')">🌍 Geo &amp; IPs</button>
+  </div>
+  <div class="nav-right">
+    <div class="live-pill">
+      <span class="live-dot"></span>
+      <span id="liveTime">--:--:--</span>
+    </div>
+    <button class="btn-primary" onclick="refreshLive()">⚡ Refresh</button>
+  </div>
+</nav>
+
+<!-- PAGE: HOME -->
+<div class="page active" id="page-home">
+  <div class="eyebrow">✦ Server Intelligence Dashboard</div>
+  <h1 class="hero">Real-time logs,<br><em>zero blind spots.</em></h1>
+  <p class="hero-sub">Full-spectrum web server analytics — traffic, errors, crashes, uploads, and geo insights at a glance.</p>
+
+  <div class="live-ticker">
+    <div class="ticker-item"><div class="ticker-val" id="tk-req">—</div><div class="ticker-lbl">Req / min</div><div class="ticker-sub">live</div></div>
+    <div class="ticker-item"><div class="ticker-val" id="tk-err">—</div><div class="ticker-lbl">Errors / min</div><div class="ticker-sub">live</div></div>
+    <div class="ticker-item"><div class="ticker-val" id="tk-rt">—</div><div class="ticker-lbl">Avg Response ms</div><div class="ticker-sub">live</div></div>
+    <div class="ticker-item"><div class="ticker-val" id="tk-conn">—</div><div class="ticker-lbl">Active Connections</div><div class="ticker-sub">live</div></div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card purple" style="animation-delay:.1s">
+      <span class="kpi-badge up">↑ 12%</span>
+      <div class="kpi-icon" style="background:var(--p-dim)">🌐</div>
+      <div class="kpi-label">Total Requests</div>
+      <!-- Flask: replace with {{ total_requests }} -->
+      <div class="kpi-val" style="color:var(--p)" id="kpi-total-requests">48,312</div>
+      <div class="kpi-sub">Last 24 hours</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:72%;background:var(--p)"></div></div>
+    </div>
+    <div class="kpi-card green" style="animation-delay:.18s">
+      <span class="kpi-badge up">↑ 3.4%</span>
+      <div class="kpi-icon" style="background:var(--green-l)">✅</div>
+      <div class="kpi-label">Success Rate</div>
+      <!-- Flask: replace with {{ success_rate }}% -->
+      <div class="kpi-val" style="color:var(--green)" id="kpi-success-rate">91.4%</div>
+      <div class="kpi-sub">2xx responses</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:91%;background:var(--green)"></div></div>
+    </div>
+    <div class="kpi-card rose" style="animation-delay:.26s">
+      <span class="kpi-badge down">↑ 7%</span>
+      <div class="kpi-icon" style="background:var(--rose-l)">🚨</div>
+      <div class="kpi-label">Total Errors</div>
+      <!-- Flask: replace with {{ error_count }} -->
+      <div class="kpi-val" style="color:var(--rose)" id="kpi-error-count">4,155</div>
+      <div class="kpi-sub">4xx + 5xx logged</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:8%;background:var(--rose)"></div></div>
+    </div>
+    <div class="kpi-card amber" style="animation-delay:.34s">
+      <span class="kpi-badge warn">~ stable</span>
+      <div class="kpi-icon" style="background:var(--amber-l)">⚡</div>
+      <div class="kpi-label">Avg Response</div>
+      <div class="kpi-val" style="color:var(--amber)">142ms</div>
+      <div class="kpi-sub">Peak: 390ms 03:00</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:36%;background:var(--amber)"></div></div>
+    </div>
+  </div>
+
+  <div class="g3">
+    <div class="card" style="animation-delay:.38s">
+      <div class="card-hd"><span class="card-title">📈 Hourly Request Volume</span><span class="chip">Today</span></div>
+      <canvas id="hourlyChart" height="120"></canvas>
+    </div>
+    <div class="card" style="animation-delay:.44s">
+      <div class="card-hd"><span class="card-title">🔵 Status Distribution</span><span class="chip">All Time</span></div>
+      <canvas id="statusChart" height="160"></canvas>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card" style="animation-delay:.48s">
+      <div class="card-hd"><span class="card-title">⏱ Response Time Trend</span><span class="chip teal">12 hours</span></div>
+      <canvas id="rtChart" height="130"></canvas>
+    </div>
+    <div class="card" style="animation-delay:.52s">
+      <div class="card-hd"><span class="card-title">🔄 Live Activity Feed</span><span class="chip green">Auto-refresh</span></div>
+      <div id="activityFeed"></div>
+    </div>
+  </div>
+
+  <!-- Crash Alerts preview (hardcoded demo — Flask populates from detect_crashes()) -->
+  <div class="card mb20" style="animation-delay:.56s;border-left:4px solid var(--rose)">
+    <div class="card-hd">
+      <span class="card-title">🔴 Active Crash Alerts</span>
+      <span class="chip rose">3 detected</span>
+    </div>
+    <div class="alert-item">
+      <div class="alert-icon crit">💥</div>
+      <div style="flex:1">
+        <div class="alert-title">5xx Spike <span style="font-size:10px;padding:2px 7px;border-radius:50px;margin-left:6px;background:var(--rose-l);color:var(--rose)">critical</span></div>
+        <div class="alert-msg">23 server errors in 60 seconds — possible crash loop</div>
+      </div>
+      <div class="alert-time">14:32:01</div>
+    </div>
+    <div class="alert-item">
+      <div class="alert-icon warn">⚠️</div>
+      <div style="flex:1">
+        <div class="alert-title">Memory OOM <span style="font-size:10px;padding:2px 7px;border-radius:50px;margin-left:6px;background:var(--amber-l);color:var(--amber)">warning</span></div>
+        <div class="alert-msg">Response time &gt; 2000ms across 15 consecutive requests</div>
+      </div>
+      <div class="alert-time">11:08:44</div>
+    </div>
+    <div class="alert-item">
+      <div class="alert-icon warn">⚠️</div>
+      <div style="flex:1">
+        <div class="alert-title">DB Timeout <span style="font-size:10px;padding:2px 7px;border-radius:50px;margin-left:6px;background:var(--amber-l);color:var(--amber)">warning</span></div>
+        <div class="alert-msg">12 connection timeouts on /api/v1/query</div>
+      </div>
+      <div class="alert-time">09:55:12</div>
+    </div>
+  </div>
+
+  <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:8px" id="generatedAt">
+    <!-- Flask: replace with generated_at value -->
+    Last generated: —
+  </p>
+</div>
+
+
+<!-- PAGE: TRAFFIC -->
+<div class="page" id="page-traffic">
+  <div class="eyebrow">📊 Traffic Analysis</div>
+  <h1 class="hero">Who's hitting<br><em>your server?</em></h1>
+
+  <div class="g33">
+    <div class="kpi-card teal" style="animation-delay:.1s">
+      <span class="kpi-badge info">Top</span>
+      <div class="kpi-icon" style="background:var(--teal-l)">🖥️</div>
+      <div class="kpi-label">Unique IPs</div>
+      <div class="kpi-val" style="color:var(--teal)">1,284</div>
+      <div class="kpi-sub">Distinct sources</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:55%;background:var(--teal)"></div></div>
+    </div>
+    <div class="kpi-card purple" style="animation-delay:.17s">
+      <span class="kpi-badge up">↑</span>
+      <div class="kpi-icon" style="background:var(--p-dim)">🔗</div>
+      <div class="kpi-label">Unique URLs</div>
+      <div class="kpi-val" style="color:var(--p)">347</div>
+      <div class="kpi-sub">Distinct endpoints</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:40%;background:var(--p)"></div></div>
+    </div>
+    <div class="kpi-card amber" style="animation-delay:.24s">
+      <span class="kpi-badge warn">Peak</span>
+      <div class="kpi-icon" style="background:var(--amber-l)">📦</div>
+      <div class="kpi-label">Data Transferred</div>
+      <div class="kpi-val" style="color:var(--amber)">18.4 GB</div>
+      <div class="kpi-sub">Outbound today</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:62%;background:var(--amber)"></div></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card" style="animation-delay:.3s">
+      <div class="card-hd"><span class="card-title">🖥️ Top IP Addresses</span><span class="chip">by requests</span></div>
+      <table>
+        <thead><tr><th>#</th><th>IP</th><th>Requests</th><th>Share</th></tr></thead>
+        <tbody id="ipTableBody"></tbody>
+      </table>
+    </div>
+    <div class="card" style="animation-delay:.38s">
+      <div class="card-hd"><span class="card-title">🔗 Top Endpoints</span><span class="chip teal">by hits</span></div>
+      <table>
+        <thead><tr><th>#</th><th>URL</th><th>Hits</th><th>Share</th></tr></thead>
+        <tbody id="urlTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card" style="animation-delay:.44s">
+      <div class="card-hd"><span class="card-title">📅 Daily Traffic Heatmap</span><span class="chip">Last 7 days</span></div>
+      <canvas id="heatmapChart" height="160"></canvas>
+    </div>
+    <div class="card" style="animation-delay:.5s">
+      <div class="card-hd"><span class="card-title">📡 Method Breakdown</span><span class="chip">GET / POST / other</span></div>
+      <canvas id="methodChart" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+
+<!-- PAGE: ERRORS & CRASHES -->
+<div class="page" id="page-errors">
+  <div class="eyebrow">🛑 Error &amp; Crash Monitor</div>
+  <h1 class="hero">Crashes caught<br><em>before they spread.</em></h1>
+
+  <div class="kpi-grid">
+    <div class="kpi-card rose" style="animation-delay:.08s">
+      <span class="kpi-badge down">Critical</span>
+      <div class="kpi-icon" style="background:var(--rose-l)">💥</div>
+      <div class="kpi-label">5xx Server Errors</div>
+      <div class="kpi-val" style="color:var(--rose)">355</div>
+      <div class="kpi-sub">Last 24h</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:22%;background:var(--rose)"></div></div>
+    </div>
+    <div class="kpi-card amber" style="animation-delay:.16s">
+      <span class="kpi-badge warn">Watch</span>
+      <div class="kpi-icon" style="background:var(--amber-l)">⚠️</div>
+      <div class="kpi-label">4xx Client Errors</div>
+      <div class="kpi-val" style="color:var(--amber)">1,620</div>
+      <div class="kpi-sub">Last 24h</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:60%;background:var(--amber)"></div></div>
+    </div>
+    <div class="kpi-card purple" style="animation-delay:.24s">
+      <span class="kpi-badge info">Detected</span>
+      <div class="kpi-icon" style="background:var(--p-dim)">🔍</div>
+      <div class="kpi-label">Crash Windows</div>
+      <!-- Flask: replace with alerts|length -->
+      <div class="kpi-val" style="color:var(--p)">3</div>
+      <div class="kpi-sub">Anomaly bursts</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:30%;background:var(--p)"></div></div>
+    </div>
+    <div class="kpi-card green" style="animation-delay:.32s">
+      <span class="kpi-badge up">Healthy</span>
+      <div class="kpi-icon" style="background:var(--green-l)">🛡️</div>
+      <div class="kpi-label">Uptime</div>
+      <div class="kpi-val" style="color:var(--green)">99.7%</div>
+      <div class="kpi-sub">Last 30 days</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:99%;background:var(--green)"></div></div>
+    </div>
+  </div>
+
+  <div class="card mb20" style="animation-delay:.38s;border-left:4px solid var(--rose)">
+    <div class="card-hd"><span class="card-title">💥 Crash / Anomaly Alerts</span><span class="chip rose">Auto-detected</span></div>
+    <div class="alert-item">
+      <div class="alert-icon crit">💥</div>
+      <div style="flex:1">
+        <div class="alert-title">5xx Spike <span style="font-size:10px;padding:2px 7px;border-radius:50px;margin-left:6px;background:var(--rose-l);color:var(--rose)">critical</span></div>
+        <div class="alert-msg">23 server errors in 60 seconds — possible crash loop</div>
+      </div>
+      <div class="alert-time">14:32:01</div>
+    </div>
+    <div class="alert-item">
+      <div class="alert-icon warn">⚠️</div>
+      <div style="flex:1">
+        <div class="alert-title">Memory OOM <span style="font-size:10px;padding:2px 7px;border-radius:50px;margin-left:6px;background:var(--amber-l);color:var(--amber)">warning</span></div>
+        <div class="alert-msg">Response time &gt; 2000ms across 15 consecutive requests</div>
+      </div>
+      <div class="alert-time">11:08:44</div>
+    </div>
+    <div class="alert-item">
+      <div class="alert-icon warn">⚠️</div>
+      <div style="flex:1">
+        <div class="alert-title">DB Timeout <span style="font-size:10px;padding:2px 7px;border-radius:50px;margin-left:6px;background:var(--amber-l);color:var(--amber)">warning</span></div>
+        <div class="alert-msg">12 connection timeouts on /api/v1/query</div>
+      </div>
+      <div class="alert-time">09:55:12</div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card" style="animation-delay:.44s">
+      <div class="card-hd"><span class="card-title">📉 Error Rate Over Time</span><span class="chip rose">24 hours</span></div>
+      <canvas id="errorTrendChart" height="140"></canvas>
+    </div>
+    <div class="card" style="animation-delay:.5s">
+      <div class="card-hd"><span class="card-title">🔢 Error Type Split</span><span class="chip">Breakdown</span></div>
+      <canvas id="errorTypeChart" height="160"></canvas>
+    </div>
+  </div>
+
+  <div class="card" style="animation-delay:.56s">
+    <div class="card-hd"><span class="card-title">🗒️ Recent Error Log</span><span class="chip rose">Latest 15</span></div>
+    <table>
+      <thead><tr><th>Status</th><th>IP</th><th>URL</th><th>Time</th></tr></thead>
+      <tbody id="errorTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- PAGE: UPLOAD DETECTION -->
+<div class="page" id="page-uploads">
+  <div class="eyebrow">📤 Upload Detection</div>
+  <h1 class="hero">Every upload,<br><em>tracked and flagged.</em></h1>
+
+  <div class="kpi-grid">
+    <div class="kpi-card teal" style="animation-delay:.08s">
+      <span class="kpi-badge info">Today</span>
+      <div class="kpi-icon" style="background:var(--teal-l)">📤</div>
+      <div class="kpi-label">Upload Events</div>
+      <!-- Flask: replace with uploads|length -->
+      <div class="kpi-val" style="color:var(--teal)">4</div>
+      <div class="kpi-sub">POST / multipart detected</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:40%;background:var(--teal)"></div></div>
+    </div>
+    <div class="kpi-card amber" style="animation-delay:.16s">
+      <span class="kpi-badge warn">Large</span>
+      <div class="kpi-icon" style="background:var(--amber-l)">📦</div>
+      <div class="kpi-label">Total Uploaded</div>
+      <div class="kpi-val" style="color:var(--amber)">109.7 MB</div>
+      <div class="kpi-sub">Cumulative size</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:55%;background:var(--amber)"></div></div>
+    </div>
+    <div class="kpi-card rose" style="animation-delay:.24s">
+      <span class="kpi-badge down">Blocked</span>
+      <div class="kpi-icon" style="background:var(--rose-l)">🚫</div>
+      <div class="kpi-label">Rejected (413/415)</div>
+      <div class="kpi-val" style="color:var(--rose)">1</div>
+      <div class="kpi-sub">Oversized / wrong type</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:10%;background:var(--rose)"></div></div>
+    </div>
+    <div class="kpi-card green" style="animation-delay:.32s">
+      <span class="kpi-badge up">Clean</span>
+      <div class="kpi-icon" style="background:var(--green-l)">🛡️</div>
+      <div class="kpi-label">Flagged Suspicious</div>
+      <div class="kpi-val" style="color:var(--green)">0</div>
+      <div class="kpi-sub">No threats detected</div>
+      <div class="kpi-bar"><div class="kpi-fill" style="width:0%;background:var(--rose)"></div></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card" style="animation-delay:.38s">
+      <div class="card-hd"><span class="card-title">📋 Upload Event Log</span><span class="chip teal">Detected uploads</span></div>
+      <div id="uploadList"></div>
+    </div>
+    <div class="card" style="animation-delay:.44s">
+      <div class="card-hd"><span class="card-title">📊 Upload Size Distribution</span><span class="chip">MB buckets</span></div>
+      <canvas id="uploadSizeChart" height="180"></canvas>
+    </div>
+  </div>
+
+  <div class="card" style="animation-delay:.5s">
+    <div class="card-hd"><span class="card-title">🕐 Upload Activity Timeline</span><span class="chip teal">Hourly</span></div>
+    <canvas id="uploadTimelineChart" height="110"></canvas>
+  </div>
+</div>
+
+
+<!-- PAGE: GEO & IPs -->
+<div class="page" id="page-geo">
+  <div class="eyebrow">🌍 Geo &amp; Source Intelligence</div>
+  <h1 class="hero">Traffic sources,<br><em>mapped worldwide.</em></h1>
+
+  <div class="g2">
+    <div class="card" style="animation-delay:.1s">
+      <div class="card-hd"><span class="card-title">🌐 Top Countries</span><span class="chip">by traffic share</span></div>
+      <div id="geoList"></div>
+    </div>
+    <div class="card" style="animation-delay:.18s">
+      <div class="card-hd"><span class="card-title">🗺️ Traffic Share</span><span class="chip">Donut</span></div>
+      <canvas id="geoChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card" style="animation-delay:.26s">
+      <div class="card-hd"><span class="card-title">🏴 IP Reputation Check</span><span class="chip rose">Flagged sources</span></div>
+      <table>
+        <thead><tr><th>IP</th><th>Requests</th><th>Risk</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">203.0.113.42</td><td>2,970</td><td><span class="status-badge s4">Medium</span></td><td style="font-size:11px;color:var(--muted)">Monitor</td></tr>
+          <tr><td class="mono">198.18.0.33</td><td>960</td><td><span class="status-badge s3">Low</span></td><td style="font-size:11px;color:var(--muted)">Watch</td></tr>
+          <tr><td class="mono">10.0.0.23</td><td>4,320</td><td><span class="status-badge s2">Clean</span></td><td style="font-size:11px;color:var(--muted)">Allow</td></tr>
+          <tr><td class="mono">172.16.254.1</td><td>3,812</td><td><span class="status-badge s2">Clean</span></td><td style="font-size:11px;color:var(--muted)">Allow</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card" style="animation-delay:.34s">
+      <div class="card-hd"><span class="card-title">📶 Bandwidth by Source</span><span class="chip amber">Top 6 IPs</span></div>
+      <canvas id="bwChart" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Flask: replace '—' with {{ generated_at }} -->
+<footer>LogSight Server Analytics · Built with Flask · <span id="footerTs">—</span></footer>
+<div id="toast">⚡ Metrics refreshed</div>
+
+<script>
+/* ─────────────────────────────────────────────────────────────
+   ALL DATA IS DEFINED HERE AS PLAIN JS CONSTANTS.
+   When using Flask, pass these via json_script or data attributes
+   and read them with JSON.parse(). No Jinja2 inside <script> tags.
+───────────────────────────────────────────────────────────── */
+
+const HOURLY_DATA = [180,140,110,90,75,85,220,580,870,940,1010,1080,1020,890,960,1120,1090,960,870,790,640,520,390,280];
+const STATUS_DATA = [
+  {status:'2xx Success', count:44157},
+  {status:'3xx Redirect', count:2180},
+  {status:'4xx Client Err', count:1620},
+  {status:'5xx Server Err', count:355}
+];
+const RT_HOURS = ['03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00'];
+const RT_VALS  = [142,138,155,390,162,148,175,195,141,138,152,142];
+
+const TOP_IPS = [
+  {ip:'192.168.1.105',count:5841},{ip:'10.0.0.23',count:4320},
+  {ip:'172.16.254.1',count:3812},{ip:'203.0.113.42',count:2970},
+  {ip:'198.51.100.7',count:2100},{ip:'10.10.1.88',count:1840},
+  {ip:'172.20.0.5',count:1520},{ip:'192.0.2.14',count:1280},
+  {ip:'198.18.0.33',count:960},{ip:'10.0.1.200',count:740}
+];
+const TOP_URLS = [
+  {url:'/api/v1/users',count:9200},{url:'/dashboard',count:7540},
+  {url:'/api/v1/products',count:6110},{url:'/static/bundle.js',count:5830},
+  {url:'/health',count:3200},{url:'/api/v1/auth',count:2980},
+  {url:'/api/v2/search',count:2450},{url:'/metrics',count:1920},
+  {url:'/api/v1/orders',count:1610},{url:'/favicon.ico',count:1180}
+];
+const ERRORS = [
+  {ip:'192.168.1.105',url:'/api/v1/delete/99',status:404,timestamp:'14:32:01'},
+  {ip:'10.0.0.23',url:'/admin/settings',status:403,timestamp:'14:28:47'},
+  {ip:'172.16.254.1',url:'/api/v1/process',status:500,timestamp:'14:21:12'},
+  {ip:'203.0.113.42',url:'/undefined-route',status:404,timestamp:'14:15:59'},
+  {ip:'198.51.100.7',url:'/api/v1/auth/token',status:401,timestamp:'14:10:03'},
+  {ip:'10.0.0.23',url:'/api/v2/sync',status:502,timestamp:'14:05:30'},
+  {ip:'172.20.0.5',url:'/api/v1/batch',status:500,timestamp:'13:58:11'},
+  {ip:'192.0.2.14',url:'/robots.txt',status:404,timestamp:'13:44:02'}
+];
+const UPLOADS = [
+  {time:'15:01:22',ip:'192.168.1.22',url:'/api/upload/dataset.csv',size:'14.2 MB',status:200},
+  {time:'13:47:09',ip:'10.0.0.88',url:'/api/upload/model_v2.pkl',size:'88.6 MB',status:200},
+  {time:'11:30:55',ip:'203.0.113.5',url:'/api/upload/logs_bulk.zip',size:'4.1 MB',status:413},
+  {time:'08:12:34',ip:'172.16.0.14',url:'/ingest/events',size:'2.8 MB',status:200}
+];
+const GEO_DATA = [
+  {country:'India',flag:'🇮🇳',requests:18420,pct:38},
+  {country:'United States',flag:'🇺🇸',requests:11280,pct:23},
+  {country:'Germany',flag:'🇩🇪',requests:5810,pct:12},
+  {country:'Singapore',flag:'🇸🇬',requests:4620,pct:9},
+  {country:'Brazil',flag:'🇧🇷',requests:3190,pct:7},
+  {country:'Other',flag:'🌍',requests:4992,pct:11}
+];
+
+/* ─── PAGE NAV ─── */
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const map = {home:0,traffic:1,errors:2,uploads:3,geo:4};
+  if (map[id] !== undefined) document.querySelectorAll('.nav-tab')[map[id]].classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ─── CHART.JS DEFAULTS ─── */
+Chart.defaults.font.family = "'Sora', sans-serif";
+Chart.defaults.color = '#6b7280';
+const PURPLE='#7c3aed',INDIGO='#4f46e5',TEAL='#0d9488',
+      AMBER='#b45309',ROSE='#be123c',GREEN='#047857',
+      BLUE='#1d4ed8',ORANGE='#c2410c';
+
+/* ─── HOURLY BAR ─── */
+new Chart(document.getElementById('hourlyChart'), {
+  type:'bar',
+  data:{
+    labels:Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')+':00'),
+    datasets:[{
+      data:HOURLY_DATA,
+      backgroundColor:HOURLY_DATA.map(v=>v>=1000?'rgba(124,58,237,.85)':v>=600?'rgba(124,58,237,.5)':'rgba(124,58,237,.22)'),
+      borderRadius:6,borderSkipped:false
+    }]
+  },
+  options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw.toLocaleString()} req`}}},
+    scales:{x:{grid:{display:false},ticks:{font:{family:'DM Mono',size:9},maxTicksLimit:8}},
+            y:{grid:{color:'#f0eeff'},ticks:{font:{family:'DM Mono',size:9}}}}}
+});
+
+/* ─── STATUS DOUGHNUT ─── */
+new Chart(document.getElementById('statusChart'), {
+  type:'doughnut',
+  data:{
+    labels:STATUS_DATA.map(s=>s.status),
+    datasets:[{data:STATUS_DATA.map(s=>s.count),
+      backgroundColor:[GREEN,AMBER,ROSE,'#991b1b'],borderColor:'#fff',borderWidth:3,hoverOffset:10}]
+  },
+  options:{cutout:'66%',plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12,usePointStyle:true}}}}
+});
+
+/* ─── RESPONSE TIME LINE ─── */
+new Chart(document.getElementById('rtChart'), {
+  type:'line',
+  data:{
+    labels:RT_HOURS,
+    datasets:[{data:RT_VALS,label:'Response Time (ms)',
+      borderColor:TEAL,backgroundColor:'rgba(13,148,136,.08)',
+      tension:.4,fill:true,
+      pointBackgroundColor:RT_VALS.map(v=>v>300?ROSE:TEAL),
+      pointRadius:RT_VALS.map(v=>v>300?6:3)}]
+  },
+  options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw}ms`}}},
+    scales:{x:{grid:{display:false},ticks:{font:{family:'DM Mono',size:9}}},
+            y:{grid:{color:'#f0eeff'},ticks:{font:{family:'DM Mono',size:9},callback:v=>v+'ms'}}}}
+});
+
+/* ─── HEATMAP ─── */
+const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+new Chart(document.getElementById('heatmapChart'), {
+  type:'line',
+  data:{
+    labels:Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')+':00'),
+    datasets:days.map((d,i)=>({label:d,
+      data:Array.from({length:24},()=>Math.floor(Math.random()*1200+50)),
+      borderColor:`hsl(${240+i*20},70%,${45+i*5}%)`,
+      backgroundColor:'transparent',tension:.4,pointRadius:0,borderWidth:1.5}))
+  },
+  options:{plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:8,usePointStyle:true,boxWidth:8}}},
+    scales:{x:{grid:{display:false},ticks:{font:{family:'DM Mono',size:9},maxTicksLimit:8}},
+            y:{grid:{color:'#f0eeff'},ticks:{font:{family:'DM Mono',size:9}}}}}
+});
+
+/* ─── METHOD POLAR ─── */
+new Chart(document.getElementById('methodChart'), {
+  type:'polarArea',
+  data:{labels:['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
+    datasets:[{data:[31200,9800,3400,1800,1100,1012],
+      backgroundColor:['rgba(124,58,237,.7)','rgba(13,148,136,.7)','rgba(180,83,9,.7)',
+                       'rgba(190,18,60,.7)','rgba(29,78,216,.7)','rgba(71,85,105,.5)'],
+      borderColor:'#fff',borderWidth:2}]
+  },
+  options:{plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:10,usePointStyle:true}}}}
+});
+
+/* ─── ERROR TREND ─── */
+const errVals=[2,1,0,0,1,0,3,8,12,9,7,11,14,10,8,9,7,15,23,18,12,8,5,3];
+new Chart(document.getElementById('errorTrendChart'), {
+  type:'line',
+  data:{labels:Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')+':00'),
+    datasets:[{data:errVals,label:'Errors/hr',
+      borderColor:ROSE,backgroundColor:'rgba(190,18,60,.08)',
+      tension:.4,fill:true,pointRadius:3,
+      pointBackgroundColor:errVals.map(v=>v>=20?ROSE:'rgba(190,18,60,.4)')}]
+  },
+  options:{plugins:{legend:{display:false}},
+    scales:{x:{grid:{display:false},ticks:{font:{family:'DM Mono',size:9},maxTicksLimit:8}},
+            y:{grid:{color:'#fff0f0'},ticks:{font:{family:'DM Mono',size:9}}}}}
+});
+
+/* ─── ERROR TYPE ─── */
+new Chart(document.getElementById('errorTypeChart'), {
+  type:'bar',
+  data:{labels:['400 Bad Req','401 Unauth','403 Forbidden','404 Not Found','429 Rate Limit','500 Server','502 Bad GW','503 Unavail'],
+    datasets:[{data:[210,480,330,920,180,230,90,35],
+      backgroundColor:[AMBER,ORANGE,ORANGE,ROSE,PURPLE,ROSE,'#991b1b','#7f1d1d'],
+      borderRadius:6,borderSkipped:false}]
+  },
+  options:{indexAxis:'y',plugins:{legend:{display:false}},
+    scales:{x:{grid:{color:'#fff0f0'},ticks:{font:{family:'DM Mono',size:9}}},
+            y:{grid:{display:false},ticks:{font:{size:10}}}}}
+});
+
+/* ─── UPLOAD SIZE DONUT ─── */
+new Chart(document.getElementById('uploadSizeChart'), {
+  type:'doughnut',
+  data:{labels:['< 1 MB','1–10 MB','10–50 MB','50–100 MB','> 100 MB'],
+    datasets:[{data:[12,8,3,2,1],
+      backgroundColor:['rgba(13,148,136,.8)','rgba(13,148,136,.6)','rgba(180,83,9,.7)','rgba(190,18,60,.6)','rgba(153,27,27,.8)'],
+      borderColor:'#fff',borderWidth:3,hoverOffset:8}]
+  },
+  options:{cutout:'60%',plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:10,usePointStyle:true}}}}
+});
+
+/* ─── UPLOAD TIMELINE ─── */
+new Chart(document.getElementById('uploadTimelineChart'), {
+  type:'bar',
+  data:{labels:Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')+':00'),
+    datasets:[{data:[0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0],
+      backgroundColor:'rgba(13,148,136,.7)',borderRadius:6,borderSkipped:false}]
+  },
+  options:{plugins:{legend:{display:false}},
+    scales:{x:{grid:{display:false},ticks:{font:{family:'DM Mono',size:9},maxTicksLimit:8}},
+            y:{grid:{color:'#f0fffe'},ticks:{font:{family:'DM Mono',size:9},stepSize:1}}}}
+});
+
+/* ─── GEO DONUT ─── */
+new Chart(document.getElementById('geoChart'), {
+  type:'doughnut',
+  data:{labels:GEO_DATA.map(g=>g.country),
+    datasets:[{data:GEO_DATA.map(g=>g.pct),
+      backgroundColor:[PURPLE,BLUE,TEAL,AMBER,ROSE,GREEN],
+      borderColor:'#fff',borderWidth:3,hoverOffset:10}]
+  },
+  options:{cutout:'62%',plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10,usePointStyle:true}}}}
+});
+
+/* ─── BANDWIDTH BAR ─── */
+new Chart(document.getElementById('bwChart'), {
+  type:'bar',
+  data:{labels:TOP_IPS.slice(0,6).map(r=>r.ip),
+    datasets:[{data:[4.8,3.6,3.1,2.4,1.9,1.5],
+      backgroundColor:[PURPLE,INDIGO,TEAL,AMBER,ROSE,GREEN],
+      borderRadius:6,borderSkipped:false}]
+  },
+  options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw} GB`}}},
+    scales:{x:{grid:{color:'#f0eeff'},ticks:{font:{family:'DM Mono',size:9},callback:v=>v+' GB'}},
+            y:{grid:{display:false},ticks:{font:{family:'DM Mono',size:9}}}}}
+});
+
+/* ─── RENDER IP TABLE ─── */
+(function() {
+  const max = TOP_IPS[0].count;
+  const total = 48312;
+  const tbody = document.getElementById('ipTableBody');
+  TOP_IPS.forEach((r,i) => {
+    const pct = ((r.count/total)*100).toFixed(1);
+    const w = Math.round(r.count/max*100);
+    tbody.innerHTML += `<tr>
+      <td style="color:var(--muted);font-size:11px">${i+1}</td>
+      <td class="mono">${r.ip}</td>
+      <td><div class="prow"><div class="mbar"><div class="mfill" style="width:${w}%;background:var(--p)"></div></div><span class="cnt">${r.count.toLocaleString()}</span></div></td>
+      <td><span style="font-size:12px;color:var(--p);font-weight:600">${pct}%</span></td>
+    </tr>`;
+  });
+})();
+
+/* ─── RENDER URL TABLE ─── */
+(function() {
+  const max = TOP_URLS[0].count;
+  const total = 48312;
+  const tbody = document.getElementById('urlTableBody');
+  TOP_URLS.forEach((r,i) => {
+    const pct = ((r.count/total)*100).toFixed(1);
+    const w = Math.round(r.count/max*100);
+    tbody.innerHTML += `<tr>
+      <td style="color:var(--muted);font-size:11px">${i+1}</td>
+      <td class="mono" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.url}">${r.url}</td>
+      <td><div class="prow"><div class="mbar"><div class="mfill" style="width:${w}%;background:var(--teal)"></div></div><span class="cnt">${r.count.toLocaleString()}</span></div></td>
+      <td><span style="font-size:12px;color:var(--teal);font-weight:600">${pct}%</span></td>
+    </tr>`;
+  });
+})();
+
+/* ─── RENDER ERROR TABLE ─── */
+(function() {
+  const tbody = document.getElementById('errorTableBody');
+  ERRORS.forEach(e => {
+    const cls = e.status >= 500 ? 's5' : e.status >= 400 ? 's4' : 's3';
+    tbody.innerHTML += `<tr>
+      <td><span class="status-badge ${cls}">${e.status}</span></td>
+      <td class="mono">${e.ip}</td>
+      <td class="mono" style="color:var(--muted)">${e.url}</td>
+      <td class="mono" style="font-size:11px;color:var(--muted)">${e.timestamp}</td>
+    </tr>`;
+  });
+})();
+
+/* ─── RENDER UPLOAD LIST ─── */
+(function() {
+  const el = document.getElementById('uploadList');
+  UPLOADS.forEach(u => {
+    const dotCls = u.status === 200 ? 'u200' : 'u4xx';
+    const badgeCls = u.status === 200 ? 's2' : u.status < 500 ? 's4' : 's5';
+    el.innerHTML += `<div class="upload-item">
+      <div class="upload-dot ${dotCls}"></div>
+      <div class="upload-info">
+        <div class="upload-url">${u.url}</div>
+        <div class="upload-meta">${u.ip} · ${u.time} · <span class="status-badge ${badgeCls}">${u.status}</span></div>
+      </div>
+      <div class="upload-size">${u.size}</div>
+    </div>`;
+  });
+})();
+
+/* ─── RENDER GEO LIST ─── */
+(function() {
+  const el = document.getElementById('geoList');
+  GEO_DATA.forEach(g => {
+    el.innerHTML += `<div class="geo-row">
+      <div class="geo-flag">${g.flag}</div>
+      <div class="geo-name">${g.country}</div>
+      <div class="geo-bar"><div class="geo-fill" style="width:${g.pct}%"></div></div>
+      <div class="geo-cnt">${g.requests.toLocaleString()} (${g.pct}%)</div>
+    </div>`;
+  });
+})();
+
+/* ─── ACTIVITY FEED ─── */
+const feedItems = [
+  {time:'14:41',dot:'green', text:'GET /api/v1/users',    sub:'200 OK · 192.168.1.105 · 38ms'},
+  {time:'14:40',dot:'purple',text:'POST /api/v1/products',sub:'201 Created · 10.0.0.23 · 52ms'},
+  {time:'14:39',dot:'rose',  text:'GET /api/v1/delete/99',sub:'404 Not Found · 172.16.254.1'},
+  {time:'14:38',dot:'green', text:'GET /health',          sub:'200 OK · monitor-bot · 12ms'},
+  {time:'14:37',dot:'amber', text:'PUT /api/v1/orders/88',sub:'500 Server Error · 203.0.113.42'},
+  {time:'14:36',dot:'green', text:'GET /dashboard',       sub:'200 OK · 198.51.100.7 · 44ms'},
+];
+const feed = document.getElementById('activityFeed');
+const dotColors = {green:'var(--green)',purple:'var(--p)',rose:'var(--rose)',amber:'var(--amber)'};
+feedItems.forEach((f,i) => {
+  feed.innerHTML += `<div class="feed-item" style="animation-delay:${i*.06}s">
+    <div class="feed-time">${f.time}</div>
+    <div class="feed-dot" style="background:${dotColors[f.dot]}"></div>
+    <div><div class="feed-url">${f.text}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px">${f.sub}</div></div>
+  </div>`;
+});
+
+/* ─── LIVE CLOCK ─── */
+function updateClock() {
+  document.getElementById('liveTime').textContent = new Date().toLocaleTimeString('en-IN',{hour12:false});
+}
+setInterval(updateClock,1000); updateClock();
+
+/* Set footer timestamp */
+document.getElementById('footerTs').textContent = new Date().toLocaleString('en-IN');
+document.getElementById('generatedAt').textContent = 'Last generated: ' + new Date().toLocaleString('en-IN');
+
+/* ─── LIVE API POLL (falls back to demo if Flask not running) ─── */
+function refreshLive() {
+  fetch('/api/live')
+    .then(r => { if(!r.ok) throw new Error(); return r.json(); })
+    .then(d => {
+      document.getElementById('tk-req').textContent  = d.requests_last_min;
+      document.getElementById('tk-err').textContent  = d.errors_last_min;
+      document.getElementById('tk-rt').textContent   = d.avg_response_ms;
+      document.getElementById('tk-conn').textContent = d.active_connections;
+      showToast('⚡ Metrics refreshed');
+    })
+    .catch(() => {
+      document.getElementById('tk-req').textContent  = Math.floor(Math.random()*300+150);
+      document.getElementById('tk-err').textContent  = Math.floor(Math.random()*15);
+      document.getElementById('tk-rt').textContent   = Math.floor(Math.random()*160+100);
+      document.getElementById('tk-conn').textContent = Math.floor(Math.random()*180+40);
+      showToast('⚡ Demo metrics loaded');
+    });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+setInterval(refreshLive, 30000);
+refreshLive();
+</script>
+</body>
+</html>
